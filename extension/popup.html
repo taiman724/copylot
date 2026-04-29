@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>CopyPal の設定</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="header">
+    <span class="logo" aria-hidden="true">📋</span>
+    <h1 class="title">CopyPal</h1>
+  </header>
+
+  <p class="lead">テキスト横の <span class="kbd">📋</span> を押すと、その内容がクリップボードにコピーされます。</p>
+
+  <section class="block">
+    <label class="switch-row">
+      <span class="switch-label">この拡張を有効にする</span>
+      <span class="switch">
+        <input type="checkbox" id="enabled-toggle" />
+        <span class="switch-slider" aria-hidden="true"></span>
+      </span>
+    </label>
+  </section>
+
+  <section class="block" id="site-block" hidden>
+    <label class="checkbox-row">
+      <input type="checkbox" id="site-disable-toggle" />
+      <span class="checkbox-label">
+        <strong>このサイトでは無効化</strong>
+        <small id="site-hostname"></small>
+      </span>
+    </label>
+  </section>
+
+  <section class="block" id="mode-block">
+    <h2 class="section-title">表示方式</h2>
+    <label class="radio-row">
+      <input type="radio" name="mode" value="always" />
+      <span class="radio-label">
+        <strong>常に表示</strong>
+        <small>テキストの横にボタンを常に出します。迷わずクリックできます。</small>
+      </span>
+    </label>
+    <label class="radio-row">
+      <input type="radio" name="mode" value="hover" />
+      <span class="radio-label">
+        <strong>ホバー時に表示</strong>
+        <small>マウスを乗せた要素にだけボタンが出ます。画面がすっきりします。</small>
+      </span>
+    </label>
+    <label class="radio-row">
+      <input type="radio" name="mode" value="click" />
+      <span class="radio-label">
+        <strong>クリックで表示</strong>
+        <small>テキストをクリックするとボタンが出現します。誤操作を抑えたい方向け。</small>
+      </span>
+    </label>
+  </section>
+
+  <section class="block">
+    <h2 class="section-title">コピー時の整形</h2>
+    <label class="checkbox-row">
+      <input type="checkbox" id="clean-toggle" />
+      <span class="checkbox-label">
+        <strong>余分な空白を整える</strong>
+        <small>先頭末尾の空白を除去し、改行・タブ・連続する半角空白を1個にまとめます。全角空白は保持します。</small>
+      </span>
+    </label>
+  </section>
+
+  <footer class="footer">
+    <small>設定は次回ブラウザを開いたときも保持されます。</small>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
