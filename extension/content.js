@@ -8,7 +8,6 @@
   const LABEL_CLASS_RE = /^(label|caption|key|legend|term)$/i;
   const LABEL_TEXT_RE = /^.{1,20}[:：]\s*$/;
   const MAX_LENGTH = 200;
-  const VALID_MODES = new Set(['always', 'hover', 'click']);
   const HOVER_HIDE_DELAY_MS = 120;
   const FEEDBACK_RESET_MS = 800;
   const TOAST_DURATION_MS = 1700;
@@ -16,7 +15,6 @@
 
   const state = {
     enabled: true,        // 実効値（rawEnabled かつ サイト無効化されていない）
-    mode: 'hover',
     cleanWhitespace: true,
   };
 
@@ -24,7 +22,6 @@
   let disabledHosts = [];
 
   let mutationObserver = null;
-  let documentClickHandler = null;
   let initialized = false;
   let toastHostEl = null;
   let toastHideTimer = null;
@@ -146,8 +143,17 @@
   function buildShadow(host, targetEl) {
     const shadow = host.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
+    // ホスト要素は light DOM 側 (.copypal-host) で display を制御している。
+    // ここでは light DOM CSS が読み込まれない万一のフォールバックとして、
+    // .copypal-show が無いとき非表示・あるとき inline-block にしておく。
     style.textContent = `
-      :host { all: initial; display: inline-block; }
+      :host {
+        all: initial;
+        display: none;
+        vertical-align: baseline;
+        line-height: 0;
+      }
+      :host(.copypal-show) { display: inline-block; }
       .btn {
         all: initial;
         display: inline-flex;
@@ -170,10 +176,8 @@
         box-shadow: 0 1px 2px rgba(0,0,0,0.10);
         user-select: none;
         vertical-align: middle;
-        visibility: hidden;
         transition: background-color 120ms ease, border-color 120ms ease, transform 80ms ease;
       }
-      :host(.copypal-show) .btn { visibility: visible; }
       .btn:hover { background: #eaf3ff; border-color: #4a90e2; }
       .btn:active { transform: translateY(1px); }
       .btn.copied { background: #e8f6ee; border-color: #2e9e5f; }
@@ -242,57 +246,27 @@
 
     // host は target の子。target を出ない限り mouseleave は発火しないので、
     // target 側のリスナだけで十分（host へホップしても表示維持される）。
-    // ハイライト（active）は click モード以外（A/B）でホバー追従、click モードのみクリック追従。
     targetEl.addEventListener('mouseenter', () => {
       if (!state.enabled) return;
-      if (state.mode === 'click') return;
       showActive();
-      if (state.mode === 'hover') showHost();
+      showHost();
     });
     targetEl.addEventListener('mouseleave', () => {
       if (!state.enabled) return;
-      if (state.mode === 'click') return;
       scheduleActiveHide();
-      if (state.mode === 'hover') scheduleHostHide();
-    });
-
-    targetEl.addEventListener('click', (e) => {
-      if (!state.enabled || state.mode !== 'click') return;
-      if (e.target.closest('[data-copypal-host="1"]')) return;
-      hideAllShownHosts();
-      showHost();
-      showActive();
-      e.stopPropagation();
+      scheduleHostHide();
     });
 
     targetEl.dataset.copypal = '1';
     // ホストを子として追加することで、grid/flex/dl 等のレイアウトを崩さない。
-    // また dataset.copypal=1 で「すでに処理済み」と識別するので、子が増えても再処理されない。
+    // 非表示時は display:none なので、ページのテキストレイアウトを一切押さない。
     targetEl.appendChild(host);
-
-    if (state.mode === 'always') host.classList.add('copypal-show');
   }
 
   function clearAllActiveTargets() {
     document.querySelectorAll('[data-copypal-active="1"]').forEach(el => {
       delete el.dataset.copypalActive;
     });
-  }
-
-  function hideAllShownHosts() {
-    document.querySelectorAll('[data-copypal-host="1"].copypal-show').forEach(h => h.classList.remove('copypal-show'));
-    clearAllActiveTargets();
-  }
-
-  function applyModeToExistingHosts() {
-    const hosts = document.querySelectorAll('[data-copypal-host="1"]');
-    if (state.mode === 'always') {
-      hosts.forEach(h => h.classList.add('copypal-show'));
-    } else {
-      hosts.forEach(h => h.classList.remove('copypal-show'));
-    }
-    // モード切替時、前モードでホバー/クリック中だったハイライトをリセット
-    clearAllActiveTargets();
   }
 
   function scanRoot(root) {
@@ -316,20 +290,11 @@
     clearAllActiveTargets();
   }
 
-  function setMode(mode) {
-    if (!VALID_MODES.has(mode)) mode = 'hover';
-    state.mode = mode;
-    document.body.classList.remove('copypal-mode-always', 'copypal-mode-hover', 'copypal-mode-click');
-    document.body.classList.add(`copypal-mode-${mode}`);
-    applyModeToExistingHosts();
-  }
-
   function setEnabled(enabled) {
     state.enabled = !!enabled;
     if (state.enabled) {
       document.body.classList.add('copypal-active');
       scanRoot(document.body);
-      applyModeToExistingHosts();
     } else {
       document.body.classList.remove('copypal-active');
       removeAllButtons();
@@ -364,28 +329,15 @@
     mutationObserver.observe(document.body, { subtree: true, childList: true });
   }
 
-  function setupGlobalListeners() {
-    if (documentClickHandler) return;
-    documentClickHandler = (e) => {
-      if (state.mode !== 'click' || !state.enabled) return;
-      if (e.target.closest('[data-copypal-host="1"]')) return;
-      if (e.target.closest('[data-copypal="1"]')) return;
-      hideAllShownHosts();
-    };
-    document.addEventListener('click', documentClickHandler, true);
-  }
-
   async function readSettings() {
     try {
       const stored = await chrome.storage.local.get({
         enabled: true,
-        mode: 'hover',
         cleanWhitespace: true,
         disabledHosts: [],
       });
       rawEnabled = stored.enabled !== false;
       disabledHosts = Array.isArray(stored.disabledHosts) ? stored.disabledHosts : [];
-      state.mode = VALID_MODES.has(stored.mode) ? stored.mode : 'hover';
       state.cleanWhitespace = stored.cleanWhitespace !== false;
       state.enabled = rawEnabled && !isCurrentSiteDisabled();
     } catch {
@@ -409,12 +361,9 @@
     await readSettings();
 
     document.body.classList.add('copypal-root');
-    document.body.classList.add(`copypal-mode-${state.mode}`);
     if (state.enabled) document.body.classList.add('copypal-active');
 
-    setupGlobalListeners();
     if (state.enabled) scanRoot(document.body);
-    applyModeToExistingHosts();
     startObserving();
 
     if (chrome.storage && chrome.storage.onChanged) {
@@ -428,9 +377,6 @@
         if ('disabledHosts' in changes) {
           disabledHosts = Array.isArray(changes.disabledHosts.newValue) ? changes.disabledHosts.newValue : [];
           needRecomputeEnabled = true;
-        }
-        if ('mode' in changes) {
-          setMode(changes.mode.newValue);
         }
         if ('cleanWhitespace' in changes) {
           state.cleanWhitespace = changes.cleanWhitespace.newValue !== false;

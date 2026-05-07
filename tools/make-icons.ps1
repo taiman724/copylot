@@ -4,7 +4,7 @@
 # Segoe UI Emoji を使用するため Windows 10/11 で動作する。
 #
 # 使い方:
-#   powershell -ExecutionPolicy Bypass -File <repo>\tools\make-icons.ps1
+#   powershell -ExecutionPolicy Bypass -File D:\LANCablev2\tools\make-icons.ps1
 
 Add-Type -AssemblyName System.Drawing
 

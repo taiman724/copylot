@@ -3,15 +3,11 @@
 
   const DEFAULTS = {
     enabled: true,
-    mode: 'hover',
     cleanWhitespace: true,
     disabledHosts: [],
   };
-  const VALID_MODES = new Set(['always', 'hover', 'click']);
 
   const enabledToggle = document.getElementById('enabled-toggle');
-  const modeBlock = document.getElementById('mode-block');
-  const modeInputs = Array.from(document.querySelectorAll('input[name="mode"]'));
   const cleanToggle = document.getElementById('clean-toggle');
   const siteBlock = document.getElementById('site-block');
   const siteToggle = document.getElementById('site-disable-toggle');
@@ -39,13 +35,6 @@
 
   function reflectEnabled(enabled) {
     enabledToggle.checked = !!enabled;
-    modeBlock.classList.toggle('disabled', !enabled);
-    modeInputs.forEach(i => { i.disabled = !enabled; });
-  }
-
-  function reflectMode(mode) {
-    if (!VALID_MODES.has(mode)) mode = DEFAULTS.mode;
-    modeInputs.forEach(i => { i.checked = (i.value === mode); });
   }
 
   function reflectCleanWhitespace(on) {
@@ -68,7 +57,6 @@
   async function load() {
     const stored = await chrome.storage.local.get(DEFAULTS);
     reflectEnabled(stored.enabled !== false);
-    reflectMode(stored.mode);
     reflectCleanWhitespace(stored.cleanWhitespace !== false);
 
     const tab = await getActiveTab();
@@ -87,15 +75,6 @@
     const enabled = enabledToggle.checked;
     reflectEnabled(enabled);
     chrome.storage.local.set({ enabled });
-  });
-
-  modeInputs.forEach(input => {
-    input.addEventListener('change', () => {
-      if (!input.checked) return;
-      const mode = input.value;
-      if (!VALID_MODES.has(mode)) return;
-      chrome.storage.local.set({ mode });
-    });
   });
 
   cleanToggle.addEventListener('change', () => {

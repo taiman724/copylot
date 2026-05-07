@@ -1,0 +1,16 @@
+# GitHub アップロード用に複製していた旧ステージングフォルダ（git 化後は不要）
+public/
+
+# ローカル動作確認用（必要なら除外を解除して push）
+test/
+
+# OS / Editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# ログ
+*.log

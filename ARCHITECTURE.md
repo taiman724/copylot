@@ -1,6 +1,6 @@
 # CopyPal — 構造・技術・仕組みの解説
 
-このドキュメントは「CopyPal が何で、どう動いているか」を **エンジニア以外にも読めるように** 整理したものです。審査時の説明資料、同僚への共有、将来の自分が「あれどうなってたっけ」と思ったときの早見表として使えます。
+このドキュメントは「CopyPal が何で、どう動いているか」を **エンジニア以外にも読めるように** 整理したものです。IT 審査時の説明資料、業務での同僚への共有、将来の自分が「あれどうなってたっけ」と思ったときの早見表として使えます。
 
 ---
 
@@ -13,11 +13,9 @@
 ## 1. ファイル構成と役割
 
 ```
-copypal/
+LANCablev2/
 ├── DESIGN.md                    なぜこういう設計にしたか（設計意図）
 ├── ARCHITECTURE.md              本書（実装の構造と技術）
-├── BUILD_FROM_SCRATCH.md        ゼロから手書きで再現するためのビルド手順書
-├── README.md                    リポジトリ概要
 ├── extension/                   Chrome 拡張本体
 │   ├── manifest.json            権限と構成の宣言
 │   ├── content.js               ページに注入されてボタンを置く本体ロジック
@@ -33,9 +31,9 @@ copypal/
 | ファイル | 役割 | 行数（目安） |
 |---|---|---|
 | `manifest.json` | Chrome に「この拡張は何ができるか」を宣言 | ~30 |
-| `content.js` | 本体ロジック。ページを走査・ボタン注入・クリップボード書込・モード制御・ハイライト・トースト | ~440 |
-| `content.css` | ホスト span のレイアウトとハイライトの 2 つだけ（残りは Shadow DOM 内） | ~25 |
-| `popup.*` | ON/OFF、サイト無効化、表示方式、整形 ON/OFF の設定 UI | 各 100〜200 |
+| `content.js` | 本体ロジック。ページを走査・ボタン注入・クリップボード書込・ハイライト・トースト | ~340 |
+| `content.css` | ホスト span のレイアウト（非表示制御）とハイライトの 2 つだけ（残りは Shadow DOM 内） | ~30 |
+| `popup.*` | ON/OFF、サイト無効化、整形 ON/OFF の設定 UI | 各 100〜200 |
 
 ---
 
@@ -102,7 +100,7 @@ new MutationObserver(callback).observe(document.body, {
 ### chrome.storage.local
 ローカル PC 内に Key-Value で値を保存する API（同期しない）。
 - 保存される 4 つのキー: `enabled`, `mode`, `cleanWhitespace`, `disabledHosts`
-- 業務データ（取り扱う情報）は一切入らない
+- 業務データ（候補者情報）は一切入らない
 - `chrome.storage.onChanged` を購読すると、別タブやポップアップでの変更を即受信できる → 全タブ同期の仕組み
 
 ### navigator.clipboard.writeText
@@ -129,9 +127,10 @@ new MutationObserver(callback).observe(document.body, {
 | キー | 型 | デフォルト | 意味 |
 |---|---|---|---|
 | `enabled` | boolean | `true` | 拡張全体の ON/OFF |
-| `mode` | string | `'hover'` | 表示方式: `'always'` / `'hover'` / `'click'` |
 | `cleanWhitespace` | boolean | `true` | コピー時に空白整形するか |
 | `disabledHosts` | string[] | `[]` | 無効化するサイトのキー一覧（hostname または `__file__`） |
+
+> 旧バージョンの `mode` キー（`'always'`/`'hover'`/`'click'`）はストレージに残っていても無視される。表示方式は **ホバー固定** に集約された。
 
 ### 「実効的に有効か」の計算
 グローバル ON かつ 現サイトが `disabledHosts` に入っていない、の AND。content.js 内では:
@@ -162,15 +161,19 @@ popup や別タブの設定変更時、content.js 側で再計算され、必要
 
 ---
 
-## 6. 表示モードの違い
+## 6. 表示挙動（ホバー固定）
 
-| モード | ボタン | ハイライト | 使い時 |
-|---|---|---|---|
-| **A: always**（常時） | 常時表示 | ホバー中のみ | サクサク連打したい人向け。画面が📋だらけになる |
-| **B: hover**（ホバー） | ホバー時のみ | ホバー時のみ | デフォルト。画面が静かでバランス良い |
-| **C: click**（クリック） | クリックで出現 / 別領域クリックで消える | クリック後持続 | 誤タップを避けたい人向け。1 ステップ多い |
+| 状態 | ボタン | ハイライト |
+|---|---|---|
+| 通常時 | 非表示（`display: none` で **レイアウトに参加しない**） | なし |
+| ホバー中 | 出現（`inline-block`） | 薄い青背景＋枠線 |
+| マウスが離れて 120ms 経過 | 非表示に戻る | 解除 |
 
-実装上はすべて同じ「ホスト要素 + Shadow DOM のボタン」を使い、表示の制御だけが違う。モード切替は `body` の class と各ホスト要素の `copypal-show` class を付け替えるだけで完了する（重い再構築なし）。
+ポイント:
+- **非ホバー時の `display: none`** が要点。`visibility: hidden` だと 28×28+margin の空ボックスがレイアウトを押し続け、ページのテキスト折り返しやドラッグ選択範囲に影響する。`display: none` ならホスト span は完全にレイアウト外になる
+- ホスト span に `user-select: none` を付与し、ドラッグ選択時にホストが選択範囲に入らないようにしている
+- ホバー検出は `target` 側のリスナのみで完結（host は target の子なので `mouseleave` がホップで発火しない）
+- 過去には「常時 / ホバー / クリック」の 3 モードを popup ラジオで切替可能だったが、UI/UX 整理に伴いホバー方式に集約した
 
 ---
 
@@ -249,7 +252,7 @@ async function onButtonClick() {
 
 | 項目 | 現状 | 対応案 |
 |---|---|---|
-| iframe 内のテキスト | ボタン出ない（`all_frames: false`） | 対象ページが iframe 構造なら `all_frames: true` に変更（審査説明追記必要） |
+| iframe 内のテキスト | ボタン出ない（`all_frames: false`） | ARCS が iframe 構造なら `all_frames: true` に変更（IT 説明追記必要） |
 | 200 文字超のテキスト | 対象外 | 段落文の自動コピーは別 UI で対応する余地あり |
 | Shadow DOM 内のページ要素 | 対象外（ページ側の Shadow には入れない） | 標準仕様の制約。回避不可 |
 | chrome:// などの内部 URL | 注入されない | Chrome の仕様。回避不可 |
@@ -264,8 +267,9 @@ async function onButtonClick() {
 1. `chrome://extensions/` を開いてデベロッパーモード ON
 2. 「パッケージ化されていない拡張機能を読み込む」→ `extension/` フォルダを選択
 3. `test/sample.html` を Chrome で開く
-4. ツールバーの 📋 アイコンから popup を開いて各モード切替・整形 ON/OFF・サイト無効化を試す
-5. ボタンクリック後にメモ帳等に Ctrl+V して中身を確認
+4. ツールバーの 📋 アイコンから popup を開いて ON/OFF・整形 ON/OFF・サイト無効化を試す
+5. テキスト要素にマウスを乗せると 📋 が出現することを確認（離すと消える）
+6. ボタンクリック後にメモ帳等に Ctrl+V して中身を確認
 
 詳細は [DESIGN.md](DESIGN.md) §動作確認手順 を参照。
 

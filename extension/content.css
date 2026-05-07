@@ -1,17 +1,29 @@
 /*
   CopyPal — Light DOM 側スタイル
   ボタン本体は Shadow DOM 内のスタイルで完結する。ここではホスト span の
-  レイアウト挙動と、ホバー/クリック対象のハイライトのみを定義する。
+  レイアウト挙動と、ホバー対象のハイライトのみを定義する。
 */
 
+/*
+  ホスト span は通常時は非表示でレイアウトに参加しない。
+  これによりページのテキストの折り返し・隣接要素の位置・ドラッグ選択範囲が
+  CopyPal によって変化しない。ホバー時のみ inline-block で出現する。
+*/
 .copypal-host {
-  display: inline-block;
-  vertical-align: baseline;
-  line-height: 0;
+  display: none !important;
+  vertical-align: baseline !important;
+  line-height: 0 !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+}
+
+.copypal-host.copypal-show {
+  display: inline-block !important;
 }
 
 /*
-  ハイライト: ホバー（mode A/B）またはクリック中（mode C）の対象要素に付く。
+  ハイライト: ホバー中の対象要素に付く。
   ページ側CSSに勝つために !important。box-shadow は inset で要素内に収まるため
   隣接セルにはみ出ない。背景は popup と同じアクセント系の薄い青で揃える。
 */
