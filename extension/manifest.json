@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CopyPal",
   "version": "0.1.0",
-  "description": "ページ上のテキスト横にコピーボタンを配置し、転記作業を効率化します。",
+  "description": "ページ上のテキスト横にコピーボタンを表示し、ワンクリックでクリップボードにコピーします。",
   "permissions": ["activeTab", "clipboardWrite", "storage"],
   "content_scripts": [
     {

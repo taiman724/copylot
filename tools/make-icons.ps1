@@ -3,8 +3,8 @@
 # Windows PowerShell で 16/48/128px の PNG を extension/icons/ に生成する。
 # Segoe UI Emoji を使用するため Windows 10/11 で動作する。
 #
-# 使い方:
-#   powershell -ExecutionPolicy Bypass -File D:\LANCablev2\tools\make-icons.ps1
+# 使い方（リポジトリ直下から実行）:
+#   powershell -ExecutionPolicy Bypass -File .\tools\make-icons.ps1
 
 Add-Type -AssemblyName System.Drawing
 

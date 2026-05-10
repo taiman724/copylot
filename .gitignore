@@ -4,6 +4,12 @@ public/
 # ローカル動作確認用（必要なら除外を解除して push）
 test/
 
+# 詳細設計ドキュメント（業務文脈を含むため公開リポジトリには上げない）
+_internal/
+
+# Claude Code のワークツリーや一時ファイル
+.claude/
+
 # OS / Editor noise
 .DS_Store
 Thumbs.db
